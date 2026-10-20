@@ -1,4 +1,5 @@
 const $ = (id) => document.getElementById(id);
+const API = window.API_BASE || '';
 
 const form = $('form');
 const userInput = $('user');
@@ -21,7 +22,9 @@ try { userInput.value = localStorage.getItem('lb-user') || ''; } catch (_) {}
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-fetch('/api/options')
+// No plano gratuito do Render o servidor dorme quando fica parado; esta
+// primeira chamada já o acorda enquanto a pessoa preenche os filtros.
+fetch(`${API}/api/options`)
   .then((r) => r.json())
   .then(({ genres, countries, decades }) => {
     addGenre('', 'Qualquer');
@@ -29,7 +32,8 @@ fetch('/api/options')
     selectGenre('');
     for (const d of decades) $('decade').add(new Option(`Anos ${String(d).slice(2)} (${d})`, d));
     for (const c of countries) $('country').add(new Option(c.label, c.slug));
-  });
+  })
+  .catch(() => showError('Não foi possível conectar ao servidor. Se ele estava parado, aguarde alguns segundos e recarregue a página.'));
 
 function addGenre(slug, label) {
   const b = document.createElement('button');
@@ -177,7 +181,7 @@ function run() {
   if (user) params.set('user', user);
   if (mode === 'network') params.set('exclude', shown.join(','));
   if (hideWatched) params.set('hideWatched', '1');
-  source = new EventSource(`/api/${mode === 'top' ? 'top' : 'shuffle'}?${params}`);
+  source = new EventSource(`${API}/api/${mode === 'top' ? 'top' : 'shuffle'}?${params}`);
 
   source.addEventListener('progress', (e) => {
     const data = JSON.parse(e.data);
