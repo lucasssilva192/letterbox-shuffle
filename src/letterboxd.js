@@ -130,23 +130,32 @@ function rawGet(path) {
   });
 }
 
+// O cache guarda só o resultado do parse: o HTML de cada página ocupa
+// centenas de KB e estouraria a memória do plano gratuito do Render.
+const MAX_CACHE_ENTRIES = 20000;
 const cache = new Map();
 
-async function get(path) {
+// Retorna { status, data }, com data = parse(html) quando a página responde 200
+async function get(path, parse = () => null) {
   const hit = cache.get(path);
   if (hit && hit.expires > Date.now()) return hit.value;
 
-  const value = await withSlot(async () => {
-    let res = await rawGet(path);
+  const res = await withSlot(async () => {
+    let r = await rawGet(path);
     // 429/5xx costumam ser passageiros: uma nova tentativa após uma pausa
-    if (res.status === 429 || res.status >= 500) {
-      await new Promise((r) => setTimeout(r, 1500));
-      res = await rawGet(path);
+    if (r.status === 429 || r.status >= 500) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      r = await rawGet(path);
     }
-    return res;
+    return r;
   });
 
+  // A ida e volta pelo JSON copia as strings: trechos extraídos por regex
+  // podem manter o HTML inteiro vivo na memória (sliced strings do V8).
+  const data = res.status === 200 ? JSON.parse(JSON.stringify(parse(res.body)) ?? 'null') : null;
+  const value = { status: res.status, data };
   if (value.status === 200 || value.status === 404) {
+    if (cache.size >= MAX_CACHE_ENTRIES) cache.delete(cache.keys().next().value);
     cache.set(path, { value, expires: Date.now() + CACHE_TTL_MS });
   }
   return value;
@@ -267,22 +276,24 @@ function normalizeUsername(input) {
 }
 
 async function getRecentFilms(user) {
-  const res = await get(`/${user}/films/`);
+  const res = await get(`/${user}/films/`, parsePosterGrid);
   if (res.status === 404) throw new LetterboxdError(`Usuário "${user}" não encontrado no Letterboxd.`, 404);
   if (res.status !== 200) throw new LetterboxdError(`O Letterboxd recusou o acesso (HTTP ${res.status}). Tente novamente em instantes.`, 502);
-  return parsePosterGrid(res.body);
+  return res.data;
 }
+
+const parseGridPage = (html) => ({ films: parsePosterGrid(html), lastPage: lastPage(html) });
 
 // Lê uma grade paginada (watchlist, lista) até maxPages
 async function getPagedGrid(basePath, maxPages) {
-  const first = await get(basePath);
+  const first = await get(basePath, parseGridPage);
   if (first.status !== 200) return [];
-  const films = parsePosterGrid(first.body);
-  const pages = Math.min(lastPage(first.body), maxPages);
+  const films = [...first.data.films];
+  const pages = Math.min(first.data.lastPage, maxPages);
   const rest = await Promise.all(
-    Array.from({ length: pages - 1 }, (_, i) => get(`${basePath}page/${i + 2}/`))
+    Array.from({ length: pages - 1 }, (_, i) => get(`${basePath}page/${i + 2}/`, parseGridPage))
   );
-  for (const r of rest) if (r.status === 200) films.push(...parsePosterGrid(r.body));
+  for (const r of rest) if (r.status === 200) films.push(...r.data.films);
   return films;
 }
 
@@ -296,26 +307,31 @@ function getList(path, maxPages = 5) {
 
 // Listas oficiais e populares disponíveis na 1ª página de cada índice
 async function discoverLists() {
-  const [official, popular] = await Promise.all([get('/official/lists/'), get('/lists/popular/')]);
+  const [official, popular] = await Promise.all([
+    get('/official/lists/', parseListLinks),
+    get('/lists/popular/', parseListLinks),
+  ]);
   return {
-    official: official.status === 200 ? parseListLinks(official.body).filter((p) => p.startsWith('/official/')) : [],
-    popular: popular.status === 200 ? parseListLinks(popular.body) : [],
+    official: official.status === 200 ? official.data.filter((p) => p.startsWith('/official/')) : [],
+    popular: popular.status === 200 ? popular.data : [],
   };
 }
 
 async function getNetwork(user) {
-  const [following, followers] = await Promise.all([get(`/${user}/following/`), get(`/${user}/followers/`)]);
+  const [following, followers] = await Promise.all([
+    get(`/${user}/following/`, parseUserList),
+    get(`/${user}/followers/`, parseUserList),
+  ]);
   const set = new Set();
-  if (following.status === 200) parseUserList(following.body).forEach((u) => set.add(u));
-  if (followers.status === 200) parseUserList(followers.body).forEach((u) => set.add(u));
+  if (following.status === 200) following.data.forEach((u) => set.add(u));
+  if (followers.status === 200) followers.data.forEach((u) => set.add(u));
   set.delete(user);
   return [...set];
 }
 
 async function getFilm(slug) {
-  const res = await get(`/film/${slug}/`);
-  if (res.status !== 200) return null;
-  return parseFilm(res.body, slug);
+  const res = await get(`/film/${slug}/`, (html) => parseFilm(html, slug));
+  return res.status === 200 ? res.data : null;
 }
 
 async function hasWatched(user, slug) {
