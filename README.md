@@ -23,7 +23,7 @@ Abra http://localhost:3000, digite seu usuário (ou a URL do perfil), escolha um
 O GitHub Pages só serve arquivos estáticos, então o site (`public/`) fica no Pages e o backend (`server.js`) roda no [Render](https://render.com):
 
 1. **Render:** em *Dashboard → New → Blueprint*, conecte este repositório. O `render.yaml` cria o serviço `letterbox-shuffle` no plano gratuito, em `https://letterbox-shuffle.onrender.com`. Se o Render der outro endereço, atualize `public/config.js`.
-2. **GitHub Pages:** em *Settings → Pages → Build and deployment → Source*, escolha **GitHub Actions**. O workflow `.github/workflows/pages.yml` publica a pasta `public/` a cada push na `main`.
+2. **GitHub Pages:** publica a branch `main` direto da raiz (*Settings → Pages → Deploy from a branch*). O `index.html` da raiz redireciona para `public/`, e o `.nojekyll` faz o Pages servir os arquivos sem passar pelo Jekyll.
 
 No plano gratuito, o Render desliga o servidor depois de uns 15 minutos sem uso. A primeira visita depois disso leva de 30 a 50 segundos a mais enquanto ele liga. O site já faz uma chamada ao abrir para acordá-lo.
 
