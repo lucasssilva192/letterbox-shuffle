@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Letterbox Shuffle</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container">
+    <header class="hero">
+      <div class="dots" aria-hidden="true"><span></span><span></span><span></span></div>
+      <h1>Letterbox Shuffle</h1>
+      <p>Escolha um gênero e sorteamos um filme que você ainda não viu, tirado das watchlists e dos filmes vistos de quem você segue e de quem te segue.</p>
+    </header>
+
+    <form id="form" class="card form">
+      <label for="user">Seu perfil no Letterboxd</label>
+      <div class="input-prefix">
+        <span>letterboxd.com/</span>
+        <input id="user" name="user" placeholder="seu_usuario" autocomplete="off" required>
+      </div>
+
+      <span class="label">Gênero</span>
+      <div id="genres" class="genres" role="radiogroup" aria-label="Gênero"></div>
+
+      <button id="submit" type="submit">Sortear filme</button>
+    </form>
+
+    <section id="status" class="card status" hidden>
+      <div class="spinner" aria-hidden="true"></div>
+      <p id="status-text">Carregando...</p>
+      <div class="bar"><div id="bar-fill"></div></div>
+    </section>
+
+    <section id="error" class="card error" hidden></section>
+
+    <section id="result" class="card result" hidden>
+      <a id="poster-link" target="_blank" rel="noopener"><img id="poster" alt=""></a>
+      <div class="info">
+        <h2><a id="title" target="_blank" rel="noopener"></a> <span id="year"></span></h2>
+        <p id="director" class="muted"></p>
+        <div id="tags" class="tags"></div>
+        <p id="description"></p>
+        <div id="sources" class="sources"></div>
+        <div class="actions">
+          <button id="again" type="button">Sortear outro</button>
+          <a id="open" class="button secondary" target="_blank" rel="noopener">Abrir no Letterboxd</a>
+        </div>
+      </div>
+    </section>
+
+    <footer>Usa apenas páginas públicas do Letterboxd. Perfis ou listas privados ficam de fora.</footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

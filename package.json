@@ -1,0 +1,16 @@
+{
+  "name": "letterbox-shuffle",
+  "version": "1.0.0",
+  "description": "Sorteia um filme de um gênero escolhido entre as watchlists e filmes vistos da sua rede no Letterboxd",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.1"
+  }
+}
