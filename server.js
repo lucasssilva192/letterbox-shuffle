@@ -32,8 +32,24 @@ const RANKED_LISTS = [
   },
 ];
 
+// Origens que podem chamar a API de outro domínio (o site no GitHub Pages)
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://lucasssilva192.github.io')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 const app = express();
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+    res.set('Vary', 'Origin');
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/healthz', (req, res) => res.send('ok'));
 
 app.get('/api/options', (req, res) => {
   res.json({

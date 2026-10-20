@@ -1,0 +1,14 @@
+# Backend no Render (https://render.com). Crie o serviço em
+# Dashboard > New > Blueprint e selecione este repositório.
+services:
+  - type: web
+    name: letterbox-shuffle
+    runtime: node
+    plan: free
+    branch: main
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: ALLOWED_ORIGINS
+        value: https://lucasssilva192.github.io

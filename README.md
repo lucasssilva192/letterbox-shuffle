@@ -18,6 +18,15 @@ npm start
 
 Abra http://localhost:3000, digite seu usuário (ou a URL do perfil), escolha um gênero e clique em **Sortear filme**.
 
+## Publicação (GitHub Pages + Render)
+
+O GitHub Pages só serve arquivos estáticos, então o site (`public/`) fica no Pages e o backend (`server.js`) roda no [Render](https://render.com):
+
+1. **Render:** em *Dashboard → New → Blueprint*, conecte este repositório. O `render.yaml` cria o serviço `letterbox-shuffle` no plano gratuito, em `https://letterbox-shuffle.onrender.com`. Se o Render der outro endereço, atualize `public/config.js`.
+2. **GitHub Pages:** em *Settings → Pages → Build and deployment → Source*, escolha **GitHub Actions**. O workflow `.github/workflows/pages.yml` publica a pasta `public/` a cada push na `main`.
+
+No plano gratuito, o Render desliga o servidor depois de uns 15 minutos sem uso. A primeira visita depois disso leva de 30 a 50 segundos a mais enquanto ele liga. O site já faz uma chamada ao abrir para acordá-lo.
+
 ## Como funciona
 
 O Letterboxd não tem API pública, então o servidor lê as páginas públicas do site:
