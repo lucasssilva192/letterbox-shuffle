@@ -16,7 +16,7 @@ const BASE = 'https://letterboxd.com';
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 
-const MAX_CONCURRENT = 4;
+const MAX_CONCURRENT = 10; // medido: até 12 em paralelo sem bloqueio do Cloudflare
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const MAX_WATCHLIST_PAGES = 6;
 
@@ -263,6 +263,9 @@ function parseFilm(html, slug) {
   };
   film.genres = collect('genre');
   film.countries = collect('country');
+
+  const tmdb = html.match(/data-tmdb-id="(\d+)"/);
+  if (tmdb) film.tmdbId = Number(tmdb[1]);
   return film;
 }
 

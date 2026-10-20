@@ -27,18 +27,15 @@ function parseFilters(query) {
     throw new LetterboxdError('A nota mínima deve estar entre 0 e 5.', 400);
   }
 
-  // Década e intervalo de anos se combinam (interseção)
-  let from = f.yearFrom;
-  let to = f.yearTo;
-  if (f.decade !== null) {
-    from = Math.max(from ?? f.decade, f.decade);
-    to = Math.min(to ?? f.decade + 9, f.decade + 9);
+  // O período é por década ou por intervalo de anos, nunca os dois
+  if (f.decade !== null && (f.yearFrom !== null || f.yearTo !== null)) {
+    throw new LetterboxdError('Use década ou intervalo de anos, não os dois ao mesmo tempo.', 400);
   }
-  if (from !== null && to !== null && from > to) {
-    throw new LetterboxdError('O intervalo de anos não tem nenhum ano possível com esses filtros.', 400);
+  if (f.yearFrom !== null && f.yearTo !== null && f.yearFrom > f.yearTo) {
+    throw new LetterboxdError('O ano inicial deve ser menor ou igual ao ano final.', 400);
   }
-  f.from = from;
-  f.to = to;
+  f.from = f.decade !== null ? f.decade : f.yearFrom;
+  f.to = f.decade !== null ? f.decade + 9 : f.yearTo;
   return f;
 }
 
@@ -63,7 +60,8 @@ function describe(f) {
   const parts = [];
   if (f.genre) parts.push(GENRES[f.genre]);
   if (f.country) parts.push(COUNTRIES[f.country]);
-  if (f.from !== null || f.to !== null) {
+  if (f.decade !== null) parts.push(`anos ${String(f.decade).slice(2)}`);
+  else if (f.from !== null || f.to !== null) {
     if (f.from === f.to) parts.push(String(f.from));
     else if (f.from !== null && f.to !== null) parts.push(`${f.from}–${f.to}`);
     else if (f.from !== null) parts.push(`a partir de ${f.from}`);
@@ -73,11 +71,14 @@ function describe(f) {
   return parts.length ? parts.join(', ') : 'qualquer filme';
 }
 
+// Países fora da lista traduzida: "saudi-arabia" -> "Saudi Arabia"
+const titleCase = (slug) => slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
 function enrich(film) {
   return {
     ...film,
     genreLabels: film.genres.map((g) => GENRES[g]).filter(Boolean),
-    countryLabels: film.countries.map((c) => COUNTRIES[c] || c),
+    countryLabels: film.countries.map((c) => COUNTRIES[c] || titleCase(c)),
   };
 }
 

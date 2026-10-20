@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Letterbox Shuffle</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -11,97 +11,143 @@
     <header class="hero">
       <div class="dots" aria-hidden="true"><span></span><span></span><span></span></div>
       <h1>Letterbox Shuffle</h1>
-      <p>Sorteie um filme que você ainda não viu, tirado da sua rede no Letterboxd, ou veja os mais bem avaliados das listas públicas.</p>
+      <p>Escolha os filtros e sorteamos um filme para você, junto com os mais bem avaliados que combinam e onde assistir cada um.</p>
     </header>
 
-    <nav class="tabs" role="tablist">
-      <button type="button" role="tab" id="tab-network" aria-selected="true" data-mode="network">Da minha rede</button>
-      <button type="button" role="tab" id="tab-top" aria-selected="false" data-mode="top">Top geral</button>
-    </nav>
+    <form id="form" class="card form" novalidate>
+      <fieldset class="group">
+        <legend>Onde buscar</legend>
+        <div class="sources-pick">
+          <label class="source-option" for="src-lists">
+            <input type="checkbox" id="src-lists" value="lists" checked>
+            <span class="source-body">
+              <strong>Listas públicas</strong>
+              <small>Top 500, listas oficiais e populares do Letterboxd</small>
+            </span>
+          </label>
+          <label class="source-option" for="src-network">
+            <input type="checkbox" id="src-network" value="network">
+            <span class="source-body">
+              <strong>Minha rede</strong>
+              <small>Watchlists e filmes vistos de quem você segue e de quem te segue</small>
+            </span>
+          </label>
+        </div>
+      </fieldset>
 
-    <form id="form" class="card form">
-      <p id="mode-help" class="help"></p>
-
-      <label for="user">Seu perfil no Letterboxd <span id="user-optional" class="optional" hidden>(opcional)</span></label>
-      <div class="input-prefix">
-        <span>letterboxd.com/</span>
-        <input id="user" name="user" placeholder="seu_usuario" autocomplete="off">
+      <div class="group">
+        <label for="user">Seu perfil no Letterboxd <span id="user-hint" class="optional">(opcional)</span></label>
+        <div class="input-prefix">
+          <span>letterboxd.com/</span>
+          <input id="user" name="user" placeholder="seu_usuario" autocomplete="off" spellcheck="false">
+        </div>
+        <label class="check" for="hideWatched">
+          <input id="hideWatched" type="checkbox" checked> Ocultar os filmes que eu já vi
+        </label>
       </div>
 
-      <span class="label">Gênero</span>
-      <div id="genres" class="genres" role="radiogroup" aria-label="Gênero"></div>
+      <div class="group">
+        <span class="label" id="genre-label">Gênero</span>
+        <div id="genres" class="chips" role="radiogroup" aria-labelledby="genre-label"></div>
+      </div>
+
+      <div class="group">
+        <span class="label" id="period-label">Período de lançamento</span>
+        <div class="segmented" role="radiogroup" aria-labelledby="period-label">
+          <button type="button" role="radio" data-period="any" aria-checked="true">Qualquer</button>
+          <button type="button" role="radio" data-period="decade" aria-checked="false">Por década</button>
+          <button type="button" role="radio" data-period="range" aria-checked="false">Por intervalo de anos</button>
+        </div>
+        <div id="period-decade" class="period-fields" hidden>
+          <div class="field">
+            <label for="decade">Década</label>
+            <select id="decade"></select>
+          </div>
+        </div>
+        <div id="period-range" class="period-fields" hidden>
+          <div class="field">
+            <label for="yearFrom">De</label>
+            <input id="yearFrom" type="number" min="1874" max="2100" placeholder="ex.: 1995" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label for="yearTo">Até</label>
+            <input id="yearTo" type="number" min="1874" max="2100" placeholder="ex.: 2005" inputmode="numeric">
+          </div>
+        </div>
+      </div>
 
       <div class="filters">
-        <div class="field">
-          <label for="yearFrom">Lançado de</label>
-          <input id="yearFrom" type="number" min="1874" max="2100" placeholder="ano">
-        </div>
-        <div class="field">
-          <label for="yearTo">até</label>
-          <input id="yearTo" type="number" min="1874" max="2100" placeholder="ano">
-        </div>
-        <div class="field">
-          <label for="decade">Década</label>
-          <select id="decade"><option value="">Qualquer</option></select>
-        </div>
         <div class="field">
           <label for="minRating">Nota mínima</label>
           <select id="minRating">
             <option value="">Qualquer</option>
-            <option value="2.5">★ 2,5+</option>
-            <option value="3">★ 3,0+</option>
-            <option value="3.5">★ 3,5+</option>
-            <option value="3.8">★ 3,8+</option>
-            <option value="4">★ 4,0+</option>
-            <option value="4.2">★ 4,2+</option>
-            <option value="4.5">★ 4,5+</option>
+            <option value="2.5">★ 2,5 ou mais</option>
+            <option value="3">★ 3,0 ou mais</option>
+            <option value="3.5">★ 3,5 ou mais</option>
+            <option value="3.8">★ 3,8 ou mais</option>
+            <option value="4">★ 4,0 ou mais</option>
+            <option value="4.2">★ 4,2 ou mais</option>
+            <option value="4.5">★ 4,5 ou mais</option>
           </select>
         </div>
         <div class="field">
-          <label for="country">País</label>
+          <label for="country">País de produção</label>
           <select id="country"><option value="">Qualquer</option></select>
+        </div>
+        <div class="field">
+          <label for="region">Onde assistir em</label>
+          <select id="region"></select>
         </div>
       </div>
 
-      <label id="hide-watched-row" class="check" hidden>
-        <input id="hideWatched" type="checkbox"> Ocultar filmes que eu já vi (precisa do usuário)
-      </label>
-
       <div class="actions">
-        <button id="submit" type="submit">Sortear filme</button>
+        <button id="submit" type="submit">Buscar filmes</button>
         <button id="clear" type="button" class="secondary">Limpar filtros</button>
       </div>
     </form>
 
-    <section id="status" class="card status" hidden>
+    <section id="status" class="card status" hidden aria-live="polite">
       <div class="spinner" aria-hidden="true"></div>
       <p id="status-text">Carregando...</p>
       <div class="bar"><div id="bar-fill"></div></div>
+      <button id="cancel" type="button" class="secondary small">Cancelar busca</button>
     </section>
 
-    <section id="error" class="card error" hidden></section>
+    <section id="error" class="card error" hidden role="alert"></section>
 
-    <section id="result" class="card result" hidden>
-      <a id="poster-link" target="_blank" rel="noopener"><img id="poster" alt=""></a>
-      <div class="info">
-        <h2><a id="title" target="_blank" rel="noopener"></a> <span id="year"></span></h2>
-        <p id="director" class="muted"></p>
-        <div id="tags" class="tags"></div>
-        <p id="description"></p>
-        <div id="sources" class="sources"></div>
-        <div class="actions">
-          <button id="again" type="button">Sortear outro</button>
-          <a id="open" class="button secondary" target="_blank" rel="noopener">Abrir no Letterboxd</a>
+    <section id="results" hidden>
+      <article id="featured" class="card featured">
+        <a id="poster-link" target="_blank" rel="noopener"><img id="poster" alt=""></a>
+        <div class="info">
+          <span class="eyebrow">Sorteado para você</span>
+          <h2><a id="title" target="_blank" rel="noopener"></a> <span id="year"></span></h2>
+          <p id="meta" class="muted"></p>
+          <div id="tags" class="tags"></div>
+          <p id="description" class="description"></p>
+          <div id="provenance" class="provenance"></div>
+
+          <section class="watch" aria-labelledby="watch-title">
+            <h3 id="watch-title">Onde assistir</h3>
+            <div id="watch-body" class="watch-body"></div>
+          </section>
+
+          <div class="actions">
+            <button id="again" type="button">Sortear outro</button>
+            <a id="open" class="button secondary" target="_blank" rel="noopener">Abrir no Letterboxd</a>
+          </div>
         </div>
-      </div>
+      </article>
+
+      <section class="ranking" aria-labelledby="ranking-title">
+        <div class="ranking-head">
+          <h2 id="ranking-title">Os mais bem avaliados</h2>
+          <p id="ranking-summary" class="muted"></p>
+        </div>
+        <ol id="ranking" class="ranking-grid"></ol>
+      </section>
     </section>
 
-    <section id="top" hidden>
-      <p id="top-summary" class="muted"></p>
-      <ol id="top-list" class="top-grid"></ol>
-    </section>
-
-    <footer>Usa apenas páginas públicas do Letterboxd. Perfis ou listas privados ficam de fora.</footer>
+    <footer>Dados de páginas públicas do Letterboxd e do JustWatch. Perfis e listas privados ficam de fora.</footer>
   </main>
   <script src="config.js"></script>
   <script src="app.js"></script>
