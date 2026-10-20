@@ -1,12 +1,14 @@
 // Coleta de dados do Letterboxd via HTML público (não há API pública).
 // O Cloudflare do site bloqueia algumas rotas (perfil, paginação de /films/,
-// filtros por gênero), então usamos apenas as rotas que respondem:
+// filtros de catálogo), então usamos apenas as rotas que respondem:
 //   /<user>/films/            -> 1ª página de filmes vistos
 //   /<user>/watchlist/page/N/ -> watchlist completa
 //   /<user>/following/        -> 1ª página de quem o usuário segue
 //   /<user>/followers/        -> 1ª página de seguidores
 //   /<user>/film/<slug>/      -> 200 se o usuário registrou o filme, 404 se não
-//   /film/<slug>/             -> dados do filme (gêneros, pôster, ano...)
+//   /<user>/list/<slug>/page/N/ -> listas públicas
+//   /official/lists/, /lists/popular/ -> descoberta de listas
+//   /film/<slug>/             -> dados do filme (gêneros, países, nota, ano...)
 
 const https = require('https');
 
@@ -38,6 +40,42 @@ const GENRES = {
   'tv-movie': 'Filme para TV',
   war: 'Guerra',
   western: 'Faroeste',
+};
+
+// Identificadores usados pelo Letterboxd em /films/country/<slug>/
+const COUNTRIES = {
+  argentina: 'Argentina',
+  australia: 'Austrália',
+  belgium: 'Bélgica',
+  brazil: 'Brasil',
+  canada: 'Canadá',
+  chile: 'Chile',
+  china: 'China',
+  colombia: 'Colômbia',
+  'south-korea': 'Coreia do Sul',
+  denmark: 'Dinamarca',
+  spain: 'Espanha',
+  usa: 'Estados Unidos',
+  finland: 'Finlândia',
+  france: 'França',
+  'hong-kong': 'Hong Kong',
+  india: 'Índia',
+  iran: 'Irã',
+  ireland: 'Irlanda',
+  italy: 'Itália',
+  japan: 'Japão',
+  mexico: 'México',
+  norway: 'Noruega',
+  'new-zealand': 'Nova Zelândia',
+  poland: 'Polônia',
+  portugal: 'Portugal',
+  uk: 'Reino Unido',
+  germany: 'Alemanha',
+  russia: 'Rússia',
+  sweden: 'Suécia',
+  taiwan: 'Taiwan',
+  turkey: 'Turquia',
+  ussr: 'União Soviética',
 };
 
 class LetterboxdError extends Error {
@@ -127,20 +165,26 @@ function decodeEntities(str) {
     .replace(/&amp;/g, '&');
 }
 
-// Itens de grade de pôsteres (filmes vistos, watchlist)
+function attr(tag, name) {
+  const m = tag.match(new RegExp(`${name}="([^"]*)"`));
+  return m ? decodeEntities(m[1]) : null;
+}
+
+// Itens de grade de pôsteres (filmes vistos, watchlist, listas). O nome vem
+// como "Título (2017)", o que permite filtrar por ano sem abrir o filme.
 function parsePosterGrid(html) {
   const films = [];
-  const re = /data-item-slug="([^"]+)"[^>]*?data-item-name="([^"]*)"|data-item-name="([^"]*)"[^>]*?data-item-slug="([^"]+)"/g;
+  const seen = new Set();
+  const re = /<[^>]*data-item-slug="[^"]+"[^>]*>/g;
   let m;
   while ((m = re.exec(html))) {
-    const slug = m[1] || m[4];
-    const name = decodeEntities(m[2] || m[3] || slug);
-    films.push({ slug, name });
-  }
-  // Fallback caso a ordem/forma dos atributos mude
-  if (!films.length) {
-    const slugRe = /data-item-slug="([^"]+)"/g;
-    while ((m = slugRe.exec(html))) films.push({ slug: m[1], name: m[1] });
+    const tag = m[0];
+    const slug = attr(tag, 'data-item-slug');
+    if (seen.has(slug)) continue;
+    seen.add(slug);
+    const name = attr(tag, 'data-item-full-display-name') || attr(tag, 'data-item-name') || slug;
+    const y = name.match(/\((\d{4})\)\s*$/);
+    films.push({ slug, name, year: y ? Number(y[1]) : null });
   }
   return films;
 }
@@ -153,6 +197,14 @@ function parseUserList(html) {
   return [...users];
 }
 
+function parseListLinks(html) {
+  const lists = new Set();
+  const re = /href="(\/[A-Za-z0-9_]+\/list\/[^"/]+\/)"/g;
+  let m;
+  while ((m = re.exec(html))) lists.add(m[1]);
+  return [...lists];
+}
+
 function lastPage(html) {
   let max = 1;
   const re = /\/page\/(\d+)\/"/g;
@@ -162,7 +214,7 @@ function lastPage(html) {
 }
 
 function parseFilm(html, slug) {
-  const film = { slug, url: `${BASE}/film/${slug}/`, genres: [] };
+  const film = { slug, url: `${BASE}/film/${slug}/`, genres: [], countries: [] };
 
   const ld = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
   if (ld) {
@@ -174,7 +226,7 @@ function parseFilm(html, slug) {
       film.poster = data.image;
       film.description = data.description;
       film.directors = (data.director || []).map((d) => d.name);
-      if (data.releasedEvent && data.releasedEvent[0]) film.year = data.releasedEvent[0].startDate;
+      if (data.releasedEvent && data.releasedEvent[0]) film.year = Number(data.releasedEvent[0].startDate);
       if (data.aggregateRating) film.rating = data.aggregateRating.ratingValue;
     } catch (_) {
       /* segue com os metadados do og:title */
@@ -186,18 +238,22 @@ function parseFilm(html, slug) {
     const t = decodeEntities(og[1]);
     const y = t.match(/\((\d{4})\)\s*$/);
     if (!film.title) film.title = t.replace(/\s*\(\d{4}\)\s*$/, '');
-    if (!film.year && y) film.year = y[1];
+    if (!film.year && y) film.year = Number(y[1]);
   }
   if (!film.description) {
     const d = html.match(/<meta property="og:description" content="([^"]*)"/);
     if (d) film.description = decodeEntities(d[1]);
   }
 
-  const genres = new Set();
-  const re = /href="\/films\/genre\/([a-z-]+)\/"/g;
-  let m;
-  while ((m = re.exec(html))) genres.add(m[1]);
-  film.genres = [...genres];
+  const collect = (kind) => {
+    const set = new Set();
+    const re = new RegExp(`href="/films/${kind}/([a-z-]+)/"`, 'g');
+    let m;
+    while ((m = re.exec(html))) set.add(m[1]);
+    return [...set];
+  };
+  film.genres = collect('genre');
+  film.countries = collect('country');
   return film;
 }
 
@@ -217,16 +273,34 @@ async function getRecentFilms(user) {
   return parsePosterGrid(res.body);
 }
 
-async function getWatchlist(user) {
-  const first = await get(`/${user}/watchlist/`);
-  if (first.status !== 200) return []; // watchlist privada ou bloqueada
+// Lê uma grade paginada (watchlist, lista) até maxPages
+async function getPagedGrid(basePath, maxPages) {
+  const first = await get(basePath);
+  if (first.status !== 200) return [];
   const films = parsePosterGrid(first.body);
-  const pages = Math.min(lastPage(first.body), MAX_WATCHLIST_PAGES);
+  const pages = Math.min(lastPage(first.body), maxPages);
   const rest = await Promise.all(
-    Array.from({ length: pages - 1 }, (_, i) => get(`/${user}/watchlist/page/${i + 2}/`))
+    Array.from({ length: pages - 1 }, (_, i) => get(`${basePath}page/${i + 2}/`))
   );
   for (const r of rest) if (r.status === 200) films.push(...parsePosterGrid(r.body));
   return films;
+}
+
+function getWatchlist(user) {
+  return getPagedGrid(`/${user}/watchlist/`, MAX_WATCHLIST_PAGES);
+}
+
+function getList(path, maxPages = 5) {
+  return getPagedGrid(path, maxPages);
+}
+
+// Listas oficiais e populares disponíveis na 1ª página de cada índice
+async function discoverLists() {
+  const [official, popular] = await Promise.all([get('/official/lists/'), get('/lists/popular/')]);
+  return {
+    official: official.status === 200 ? parseListLinks(official.body).filter((p) => p.startsWith('/official/')) : [],
+    popular: popular.status === 200 ? parseListLinks(popular.body) : [],
+  };
 }
 
 async function getNetwork(user) {
@@ -253,10 +327,13 @@ async function hasWatched(user, slug) {
 
 module.exports = {
   GENRES,
+  COUNTRIES,
   LetterboxdError,
   normalizeUsername,
   getRecentFilms,
   getWatchlist,
+  getList,
+  discoverLists,
   getNetwork,
   getFilm,
   hasWatched,
